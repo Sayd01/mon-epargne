@@ -102,54 +102,76 @@
     .empty-title { font-size: 15px; font-weight: 700; color: #1A1F2C; margin-bottom: 4px; }
     .empty-sub { font-size: 12px; font-weight: 500; }
 
-    .month-head {
+    /* ===== Style relevé bancaire ===== */
+    .month-section { margin-bottom: 14px; }
+    .month-header {
       display: flex; align-items: baseline; justify-content: space-between;
-      padding: 16px 4px 8px;
-      font-size: 10px; font-weight: 800; color: rgba(30, 58, 95, 0.55);
+      padding: 20px 6px 8px;
+      border-bottom: 1.5px solid rgba(30, 58, 95, 0.12);
+    }
+    .month-name {
+      font-size: 10px; font-weight: 800;
       letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(30, 58, 95, 0.78);
     }
-    .month-head .total {
-      font-size: 12px; font-weight: 700; letter-spacing: 0;
-      text-transform: none; font-variant-numeric: tabular-nums;
+    .month-total {
+      font-size: 13px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
     }
-    .month-head .total.positive { color: #15803D; }
-    .month-head .total.negative { color: #B91C1C; }
-    .month-head .total.zero { color: rgba(30, 58, 95, 0.5); }
+    .month-total.positive { color: #15803D; }
+    .month-total.negative { color: #B91C1C; }
+    .month-total.zero { color: rgba(30, 58, 95, 0.5); }
 
-    .item {
+    .row {
       display: grid;
-      grid-template-columns: 36px 1fr auto;
-      gap: 12px; align-items: center;
-      padding: 12px 14px;
-      background: white;
-      border: 1px solid rgba(30, 58, 95, 0.06);
-      border-radius: 14px;
-      margin-bottom: 6px;
+      grid-template-columns: 62px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 13px 6px;
+      border-bottom: 1px solid rgba(30, 58, 95, 0.05);
       cursor: pointer;
-      transition: transform .15s, box-shadow .15s;
+      transition: background .12s;
+      min-height: 44px;
     }
-    .item:active { transform: scale(0.99); }
-    .item:hover { box-shadow: 0 4px 14px rgba(30, 58, 95, 0.06); }
-
-    .item-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
+    .row:active { background: rgba(30, 58, 95, 0.04); }
+    .row:last-child { border-bottom: none; }
+    .row-date {
+      font-size: 12px; font-weight: 600;
+      color: rgba(30, 58, 95, 0.65);
+      font-variant-numeric: tabular-nums;
     }
-    .item-icon.deposit { background: linear-gradient(135deg, #DCFCE7, #BBF7D0); color: #15803D; }
-    .item-icon.withdraw { background: linear-gradient(135deg, #FEE2E2, #FECACA); color: #B91C1C; }
-    .item-icon svg { width: 18px; height: 18px; }
-
-    .item-body { min-width: 0; }
-    .item-date { font-size: 11px; font-weight: 600; color: rgba(30, 58, 95, 0.6); font-variant-numeric: tabular-nums; }
-    .item-note { font-size: 13px; font-weight: 600; color: #1A1F2C; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .item-note.empty { color: rgba(30, 58, 95, 0.4); font-style: italic; font-weight: 500; }
-
-    .item-amount {
-      font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
-      letter-spacing: -0.015em;
+    .row-note {
+      font-size: 14px; font-weight: 600;
+      color: #1A1F2C;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .item-amount.deposit { color: #15803D; }
-    .item-amount.withdraw { color: #B91C1C; }
+    .row-amount {
+      font-size: 14px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      display: flex; align-items: baseline; gap: 2px;
+    }
+    .row-amount .sign { font-size: 13px; opacity: 0.85; }
+    .row-amount.deposit { color: #15803D; }
+    .row-amount.withdraw { color: #B91C1C; }
+
+    /* Indicateur de gap entre mois non-consécutifs */
+    .gap {
+      text-align: center;
+      padding: 16px 0 8px;
+      font-size: 11px; font-weight: 600;
+      color: rgba(30, 58, 95, 0.42);
+      letter-spacing: 0.02em;
+      font-style: italic;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .gap::before, .gap::after {
+      content: '';
+      flex: 0 1 32px;
+      height: 1px;
+      background: rgba(30, 58, 95, 0.15);
+    }
 
     /* ===== ACTION BAR (bottom sticky) ===== */
     .actions {
@@ -639,33 +661,46 @@
     const sortedMonthKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
 
     let html = '';
-    sortedMonthKeys.forEach(mk => {
-      // Tri explicite des items du mois (plus récent en haut, puis par id)
+    sortedMonthKeys.forEach((mk, idx) => {
+      // Indicateur de gap entre mois non-consécutifs
+      if (idx > 0) {
+        const recent = sortedMonthKeys[idx - 1];
+        const gapMonths = monthDiff(recent, mk) - 1;
+        if (gapMonths > 0) {
+          const label = gapMonths === 1 ? '1 mois sans envoi' : gapMonths + ' mois sans envoi';
+          html += '<div class="gap">' + label + '</div>';
+        }
+      }
+
       const items = byMonth[mk].sort((a, b) => {
         if (b.date !== a.date) return b.date.localeCompare(a.date);
         return b.id - a.id;
       });
       const monthTotal = items.reduce((s, m) => s + (m.type === 'deposit' ? m.amount : -m.amount), 0);
       const totalCls = monthTotal > 0 ? 'positive' : (monthTotal < 0 ? 'negative' : 'zero');
-      html += '<div class="month-head"><span>' + formatMonthYear(mk) + '</span><span class="total ' + totalCls + '">' + fmtSigned(monthTotal) + '</span></div>';
+
+      html += '<div class="month-section">';
+      html += '<div class="month-header"><span class="month-name">' + formatMonthYear(mk) + '</span><span class="month-total ' + totalCls + '">' + fmtSigned(monthTotal) + '</span></div>';
       items.forEach(m => {
-        const iconCls = m.type === 'deposit' ? 'deposit' : 'withdraw';
-        const iconSvg = m.type === 'deposit'
-          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>'
-          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M19 12l-7-7-7 7"/></svg>';
-        const note = m.note ? escapeHtml(m.note) : '<span class="empty">Sans note</span>';
-        const amountStr = (m.type === 'deposit' ? '+' : '−') + ' ' + fmt(m.amount) + ' F';
-        html += '<div class="item" onclick="editMovement(' + m.id + ')">' +
-          '<div class="item-icon ' + iconCls + '">' + iconSvg + '</div>' +
-          '<div class="item-body">' +
-            '<div class="item-date">' + formatDateLong(m.date) + '</div>' +
-            '<div class="item-note">' + note + '</div>' +
-          '</div>' +
-          '<div class="item-amount ' + iconCls + ' tabular">' + amountStr + '</div>' +
+        const cls = m.type === 'deposit' ? 'deposit' : 'withdraw';
+        const sign = m.type === 'deposit' ? '+' : '−';
+        const note = m.note ? escapeHtml(m.note) : '';
+        html += '<div class="row" onclick="editMovement(' + m.id + ')">' +
+          '<div class="row-date">' + formatDateLong(m.date) + '</div>' +
+          '<div class="row-note">' + note + '</div>' +
+          '<div class="row-amount ' + cls + '"><span class="sign">' + sign + '</span> ' + fmt(m.amount) + ' F</div>' +
         '</div>';
       });
+      html += '</div>';
     });
     document.getElementById('list').innerHTML = html;
+  }
+
+  // Écart en mois entre deux clés "YYYY-MM" (recentKey > oldKey)
+  function monthDiff(recentKey, oldKey) {
+    const [yR, mR] = recentKey.split('-').map(Number);
+    const [yO, mO] = oldKey.split('-').map(Number);
+    return (yR - yO) * 12 + (mR - mO);
   }
 
   function escapeHtml(s) {

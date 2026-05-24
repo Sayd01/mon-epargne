@@ -1,0 +1,15 @@
+{
+  "name": "Caisse Papa",
+  "short_name": "Caisse",
+  "description": "Suivi personnel de l'épargne envoyée à mon père",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF8F2",
+  "theme_color": "#1E3A5F",
+  "lang": "fr",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

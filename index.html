@@ -397,7 +397,14 @@
 
       <div class="field">
         <label class="field-label" for="form-date">Date</label>
-        <input type="date" id="form-date" class="field-input">
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="form-date" class="field-input tabular"
+            placeholder="JJ/MM/AAAA" maxlength="10" inputmode="numeric"
+            autocomplete="off" style="flex: 1; letter-spacing: 0.04em;"
+            oninput="onDateInput(this)">
+          <button type="button" onclick="setDateToday()" class="btn-secondary" style="flex-shrink: 0; padding: 8px 12px; font-size: 12px;">Aujourd'hui</button>
+        </div>
+        <p style="font-size: 11px; color: rgba(30,58,95,0.5); margin: 5px 2px 0;">Format jour/mois/année — tape juste les chiffres, les « / » s'ajoutent tout seuls.</p>
       </div>
 
       <div class="field">
@@ -566,6 +573,34 @@
     return iso.slice(0, 7); // YYYY-MM
   }
 
+  // Convertit ISO YYYY-MM-DD → JJ/MM/AAAA (pour affichage dans l'input)
+  function isoToDisplay(iso) {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return d + '/' + m + '/' + y;
+  }
+  // Convertit JJ/MM/AAAA → ISO YYYY-MM-DD (avec validation)
+  function displayToIso(str) {
+    const m = String(str || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10), yyyy = parseInt(m[3], 10);
+    if (dd < 1 || dd > 31 || mm < 1 || mm > 12 || yyyy < 1900 || yyyy > 2100) return null;
+    // Vérifie que la date existe vraiment (ex : 31/02 rejeté)
+    const dt = new Date(yyyy, mm - 1, dd);
+    if (dt.getFullYear() !== yyyy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return null;
+    return yyyy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+  }
+  // Auto-format pendant la frappe : extrait chiffres, ré-insère "/"
+  function onDateInput(input) {
+    let v = input.value.replace(/\D/g, '').slice(0, 8);
+    if (v.length >= 5)      v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
+    else if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
+    input.value = v;
+  }
+  function setDateToday() {
+    document.getElementById('form-date').value = isoToDisplay(todayIso());
+  }
+
   // ============================================================
   // RENDER
   // ============================================================
@@ -593,22 +628,23 @@
     }
     document.getElementById('empty').style.display = 'none';
 
-    // Tri décroissant par date, puis id (timestamp)
-    const sorted = [...movements].sort((a, b) => {
-      if (b.date !== a.date) return b.date.localeCompare(a.date);
-      return b.id - a.id;
-    });
-
     // Groupement par mois
     const byMonth = {};
-    sorted.forEach(m => {
+    movements.forEach(m => {
       const k = monthKey(m.date);
       (byMonth[k] ||= []).push(m);
     });
 
+    // Tri explicite des mois (plus récent en haut)
+    const sortedMonthKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+
     let html = '';
-    Object.keys(byMonth).forEach(mk => {
-      const items = byMonth[mk];
+    sortedMonthKeys.forEach(mk => {
+      // Tri explicite des items du mois (plus récent en haut, puis par id)
+      const items = byMonth[mk].sort((a, b) => {
+        if (b.date !== a.date) return b.date.localeCompare(a.date);
+        return b.id - a.id;
+      });
       const monthTotal = items.reduce((s, m) => s + (m.type === 'deposit' ? m.amount : -m.amount), 0);
       const totalCls = monthTotal > 0 ? 'positive' : (monthTotal < 0 ? 'negative' : 'zero');
       html += '<div class="month-head"><span>' + formatMonthYear(mk) + '</span><span class="total ' + totalCls + '">' + fmtSigned(monthTotal) + '</span></div>';
@@ -644,7 +680,7 @@
     formType = type;
     document.getElementById('edit-title').textContent = 'Nouveau mouvement';
     document.getElementById('form-amount').value = '';
-    document.getElementById('form-date').value = todayIso();
+    document.getElementById('form-date').value = isoToDisplay(todayIso());
     document.getElementById('form-note').value = '';
     document.getElementById('btn-delete').style.display = 'none';
     syncTypeTabs();
@@ -659,7 +695,7 @@
     formType = m.type;
     document.getElementById('edit-title').textContent = 'Modifier le mouvement';
     document.getElementById('form-amount').value = m.amount;
-    document.getElementById('form-date').value = m.date;
+    document.getElementById('form-date').value = isoToDisplay(m.date);
     document.getElementById('form-note').value = m.note || '';
     document.getElementById('btn-delete').style.display = '';
     syncTypeTabs();
@@ -678,10 +714,11 @@
 
   function saveMovement() {
     const amount = parseInt(document.getElementById('form-amount').value);
-    const date = document.getElementById('form-date').value;
+    const dateRaw = document.getElementById('form-date').value.trim();
     const note = document.getElementById('form-note').value.trim();
     if (!amount || amount <= 0) { showToast('Montant invalide'); return; }
-    if (!date) { showToast('Date manquante'); return; }
+    const date = displayToIso(dateRaw);
+    if (!date) { showToast('Date invalide — format JJ/MM/AAAA'); return; }
     if (editingId) {
       const m = movements.find(x => x.id === editingId);
       if (m) { m.type = formType; m.amount = amount; m.date = date; m.note = note; }
